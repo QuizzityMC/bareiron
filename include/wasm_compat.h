@@ -7,6 +7,7 @@
 #include <emscripten/websocket.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 
 // Socket compatibility layer for WebAssembly
 // Maps BSD socket API to Emscripten WebSocket API

@@ -44,6 +44,7 @@ int wasm_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
   // Accept is non-blocking and returns -1 when no connections are pending
   // Actual connections are handled by JavaScript and added via wasm_add_client
   // This is just a stub that always returns "would block"
+  errno = EAGAIN;
   return -1;
 }
 
@@ -80,6 +81,7 @@ ssize_t wasm_recv(int sockfd, void *buf, size_t len, int flags) {
   int available = sock->recv_buffer_len - sock->recv_buffer_pos;
   if (available <= 0) {
     // No data available, would block
+    errno = EAGAIN;
     return -1;
   }
   
