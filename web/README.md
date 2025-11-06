@@ -71,37 +71,27 @@ ws-tcp-relay --listen 25565 --target ws://localhost:8080
 
 Then connect your Minecraft client to `localhost:25565`.
 
-### Option 2: Custom Proxy Server
+### Option 2: Use the Included Proxy Server
 
-You can create a custom Node.js proxy. Here's a simple example:
+This repository includes a ready-to-use proxy server:
 
-```javascript
-const WebSocket = require('ws');
-const net = require('net');
+```bash
+# Install dependencies
+cd web
+npm install
 
-const wsServer = new WebSocket.Server({ port: 8080 });
-const tcpServer = net.createServer();
+# Run the proxy
+npm run proxy
 
-wsServer.on('connection', (ws) => {
-  console.log('WebSocket client connected');
-  
-  ws.on('message', (data) => {
-    // Forward to Minecraft client via TCP
-  });
-});
-
-tcpServer.on('connection', (socket) => {
-  console.log('Minecraft client connected');
-  
-  socket.on('data', (data) => {
-    // Forward to WebSocket
-  });
-});
-
-tcpServer.listen(25565, () => {
-  console.log('Proxy listening on port 25565');
-});
+# Or directly:
+node proxy-server-example.js
 ```
+
+The proxy will listen on port 25565 for Minecraft clients and forward to the WebSocket server.
+
+### Option 3: Custom Proxy Server
+
+You can create a custom Node.js proxy. See `proxy-server-example.js` for a complete implementation.
 
 ## Files
 
