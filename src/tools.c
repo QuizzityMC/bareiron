@@ -6,6 +6,12 @@
   #include "lwip/sockets.h"
   #include "lwip/netdb.h"
   #include "esp_timer.h"
+#elif defined(PICO_BUILD)
+  #include "pico/stdlib.h"
+  #include "lwip/sockets.h"
+#elif defined(WASM_BUILD)
+  #include "wasm_compat.h"
+  #include <emscripten.h>
 #else
   #ifdef _WIN32
     #include <winsock2.h>
@@ -271,7 +277,19 @@ uint64_t splitmix64 (uint64_t state) {
   return z ^ (z >> 31);
 }
 
-#ifndef ESP_PLATFORM
+#if defined(PICO_BUILD)
+// Returns system time in microseconds since program start.
+// Uses Pico SDK's time_us_64() function.
+int64_t get_program_time () {
+  return (int64_t)time_us_64();
+}
+#elif defined(WASM_BUILD)
+// Returns system time in microseconds since program start.
+// Uses Emscripten's emscripten_get_now() which returns milliseconds.
+int64_t get_program_time () {
+  return (int64_t)(emscripten_get_now() * 1000.0);
+}
+#elif !defined(ESP_PLATFORM)
 // Returns system time in microseconds.
 // On ESP-IDF, this is available in "esp_timer.h", and returns time *since
 // the start of the program*, and NOT wall clock time. To ensure

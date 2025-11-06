@@ -1,0 +1,54 @@
+# CMakeLists.txt for Raspberry Pi Pico W
+# This builds bareiron for the Raspberry Pi Pico W microcontroller
+
+cmake_minimum_required(VERSION 3.13)
+
+# Initialize the Pico SDK
+include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+
+project(bareiron C CXX ASM)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+# Initialize the Raspberry Pi Pico SDK
+pico_sdk_init()
+
+# Add your source files
+add_executable(bareiron
+    src/main.c
+    src/globals.c
+    src/packets.c
+    src/procedures.c
+    src/serialize.c
+    src/structures.c
+    src/tools.c
+    src/varnum.c
+    src/worldgen.c
+    src/crafting.c
+    src/registries.c
+)
+
+# Add include directories
+target_include_directories(bareiron PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/include
+)
+
+# Define PICO_BUILD for conditional compilation
+target_compile_definitions(bareiron PRIVATE
+    PICO_BUILD=1
+)
+
+# Link against pico libraries
+target_link_libraries(bareiron
+    pico_stdlib
+    pico_cyw43_arch_lwip_threadsafe_background
+    pico_lwip_mbedtls
+)
+
+# Enable USB output, disable UART output
+pico_enable_stdio_usb(bareiron 1)
+pico_enable_stdio_uart(bareiron 0)
+
+# Create map/bin/hex/uf2 file in addition to ELF
+pico_add_extra_outputs(bareiron)

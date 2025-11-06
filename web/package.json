@@ -1,0 +1,29 @@
+{
+  "name": "bareiron-web",
+  "version": "1.0.0",
+  "description": "WebAssembly/browser-based Bareiron Minecraft server",
+  "main": "index.html",
+  "scripts": {
+    "serve": "http-server . -p 8080 -c-1",
+    "proxy": "node proxy-server-example.js",
+    "start": "npm run serve"
+  },
+  "keywords": [
+    "minecraft",
+    "server",
+    "webassembly",
+    "wasm",
+    "embedded"
+  ],
+  "author": "Bareiron contributors",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
