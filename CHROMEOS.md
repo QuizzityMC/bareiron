@@ -49,9 +49,21 @@ Run the Minecraft server directly in your web browser! This works on any ChromeO
 
 Due to browser security restrictions, Minecraft clients cannot directly connect to a WebSocket server running in a browser tab. You have two options:
 
-#### A. WebSocket-to-TCP Proxy (Recommended)
+#### A. Use the Included Proxy Server (Recommended)
 
-Use a proxy tool to bridge WebSocket and TCP:
+The repository includes a ready-to-use proxy server:
+
+```bash
+cd web
+npm install
+npm run proxy
+```
+
+This will start a proxy on port 25565 that bridges Minecraft clients to the WebSocket server.
+
+#### B. Use ws-tcp-relay
+
+Alternatively, use a third-party proxy tool:
 
 ```bash
 # Install ws-tcp-relay
@@ -63,9 +75,9 @@ ws-tcp-relay --listen 25565 --target ws://localhost:8080
 
 Then connect your Minecraft client to `localhost:25565`.
 
-#### B. Local Development Server
+#### C. Custom Implementation
 
-For testing, you can run a local proxy server that handles both HTTP serving and WebSocket-to-TCP bridging. Example proxy server code is available in `web/proxy-server.js` (to be created).
+You can create your own proxy server. See `web/proxy-server-example.js` for a complete Node.js implementation that you can customize.
 
 ### Limitations of WebAssembly Version
 
