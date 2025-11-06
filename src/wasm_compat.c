@@ -157,8 +157,11 @@ EM_BOOL wasm_websocket_message_callback(int eventType, const EmscriptenWebSocket
     size_t to_copy = (e->numBytes < space_available) ? e->numBytes : space_available;
     
     if (to_copy > 0) {
-      memcpy(sock->recv_buffer + sock->recv_buffer_len, e->data, to_copy);
-      sock->recv_buffer_len += to_copy;
+      // Verify bounds to prevent buffer overflow
+      if (sock->recv_buffer_len + to_copy <= sizeof(sock->recv_buffer)) {
+        memcpy(sock->recv_buffer + sock->recv_buffer_len, e->data, to_copy);
+        sock->recv_buffer_len += to_copy;
+      }
     } else if (e->numBytes > 0) {
       // Buffer full, data is being dropped
       printf("Warning: Receive buffer full on fd %d, dropping %d bytes\n", 

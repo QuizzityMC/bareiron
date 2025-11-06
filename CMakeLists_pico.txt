@@ -44,7 +44,6 @@ target_link_libraries(bareiron
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip_mbedtls
-    pico_mbedtls
 )
 
 # Enable USB output, disable UART output
