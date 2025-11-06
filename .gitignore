@@ -5,3 +5,20 @@ bareiron.exe
 src/registries.c
 include/registries.h
 *.bin
+
+# WebAssembly build artifacts
+web/bareiron.js
+web/bareiron.wasm
+web/bareiron.data
+
+# Pico build artifacts
+build-pico/
+*.uf2
+*.elf
+*.hex
+*.map
+
+# General build artifacts
+build/
+*.o
+*.a

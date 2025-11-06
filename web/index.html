@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bareiron Minecraft Server</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 800px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    h1 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+    
+    .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 1.1em;
+    }
+    
+    .info-box {
+      background: #f7fafc;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    
+    .info-box h3 {
+      color: #2d3748;
+      margin-bottom: 10px;
+    }
+    
+    .info-box p {
+      color: #4a5568;
+      line-height: 1.6;
+    }
+    
+    .server-controls {
+      margin: 30px 0;
+    }
+    
+    .button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .button:hover {
+      background: #5a67d8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .button:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .button.stop {
+      background: #f56565;
+    }
+    
+    .button.stop:hover {
+      background: #e53e3e;
+    }
+    
+    .status {
+      padding: 10px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+      font-weight: 600;
+    }
+    
+    .status.stopped {
+      background: #fed7d7;
+      color: #c53030;
+    }
+    
+    .status.starting {
+      background: #feebc8;
+      color: #c05621;
+    }
+    
+    .status.running {
+      background: #c6f6d5;
+      color: #2f855a;
+    }
+    
+    .log-container {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 20px 0;
+    }
+    
+    .log-line {
+      padding: 4px 0;
+      border-bottom: 1px solid #2d3748;
+    }
+    
+    .connection-info {
+      background: #edf2f7;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .connection-info strong {
+      color: #2d3748;
+    }
+    
+    .connection-info code {
+      background: #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .warning {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Bareiron Minecraft Server</h1>
+    <p class="subtitle">Minimalist Minecraft server running in your browser</p>
+    
+    <div class="warning">
+      <strong>⚠️ Note:</strong> This WebAssembly version requires a WebSocket proxy to connect Minecraft clients. 
+      The server runs entirely in your browser, but clients will connect through a WebSocket bridge.
+    </div>
+    
+    <div class="server-controls">
+      <button id="startBtn" class="button" onclick="startServer()">Start Server</button>
+      <button id="stopBtn" class="button stop" onclick="stopServer()" disabled>Stop Server</button>
+    </div>
+    
+    <div id="status" class="status stopped">Status: Stopped</div>
+    
+    <div class="connection-info" id="connectionInfo" style="display: none;">
+      <strong>🔗 Connection Information:</strong><br>
+      WebSocket Port: <code id="wsPort">25565</code><br>
+      To connect with Minecraft, use a WebSocket-to-TCP proxy pointing to this page.
+    </div>
+    
+    <div class="info-box">
+      <h3>📋 Server Information</h3>
+      <p>
+        <strong>Minecraft Version:</strong> 1.21.8 (Protocol 772)<br>
+        <strong>Game Mode:</strong> Survival<br>
+        <strong>View Distance:</strong> 2 chunks<br>
+        <strong>Max Players:</strong> 16
+      </p>
+    </div>
+    
+    <h3 style="margin-top: 30px; color: #2d3748;">Server Log</h3>
+    <div id="logContainer" class="log-container">
+      <div class="log-line">Waiting to start server...</div>
+    </div>
+  </div>
+
+  <script src="bareiron-bridge.js"></script>
+  <script>
+    let serverModule = null;
+    let isRunning = false;
+    
+    function updateStatus(status, message) {
+      const statusEl = document.getElementById('status');
+      statusEl.className = `status ${status}`;
+      statusEl.textContent = message;
+    }
+    
+    function addLog(message) {
+      const logContainer = document.getElementById('logContainer');
+      const logLine = document.createElement('div');
+      logLine.className = 'log-line';
+      const timestamp = new Date().toLocaleTimeString();
+      logLine.textContent = `[${timestamp}] ${message}`;
+      logContainer.appendChild(logLine);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    
+    async function startServer() {
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      
+      startBtn.disabled = true;
+      updateStatus('starting', 'Status: Starting...');
+      addLog('Initializing server...');
+      
+      try {
+        // Initialize the server using the bridge
+        await BareironBridge.init();
+        
+        updateStatus('running', 'Status: Running ✓');
+        addLog('Server started successfully!');
+        addLog('Listening for WebSocket connections on port 25565');
+        
+        document.getElementById('connectionInfo').style.display = 'block';
+        stopBtn.disabled = false;
+        isRunning = true;
+      } catch (error) {
+        updateStatus('stopped', 'Status: Failed to Start');
+        addLog(`Error: ${error.message}`);
+        startBtn.disabled = false;
+      }
+    }
+    
+    function stopServer() {
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      
+      addLog('Stopping server...');
+      
+      // Stop the server
+      if (BareironBridge.stop) {
+        BareironBridge.stop();
+      }
+      
+      updateStatus('stopped', 'Status: Stopped');
+      addLog('Server stopped.');
+      
+      document.getElementById('connectionInfo').style.display = 'none';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      isRunning = false;
+    }
+    
+    // Forward console output to log
+    const originalLog = console.log;
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      addLog(args.join(' '));
+    };
+    
+    addLog('Ready to start. Click "Start Server" to begin.');
+  </script>
+</body>
+</html>

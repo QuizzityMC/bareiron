@@ -2,9 +2,11 @@
 #define H_GLOBALS
 
 #include <stdint.h>
+#ifndef WASM_BUILD
 #include <unistd.h>
+#endif
 
-#ifdef ESP_PLATFORM
+#if defined(ESP_PLATFORM) || defined(PICO_BUILD)
   #define WIFI_SSID "your-ssid"
   #define WIFI_PASS "your-password"
   void task_yield ();

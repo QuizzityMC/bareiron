@@ -17,6 +17,15 @@
   #include "esp_timer.h"
   #include "lwip/sockets.h"
   #include "lwip/netdb.h"
+#elif defined(PICO_BUILD)
+  #include "pico/stdlib.h"
+  #include "pico/cyw43_arch.h"
+  #include "lwip/sockets.h"
+  #include "lwip/netdb.h"
+  #include "hardware/rtc.h"
+#elif defined(WASM_BUILD)
+  #include "wasm_compat.h"
+  #include <time.h>
 #else
   #include <sys/types.h>
   #ifdef _WIN32
@@ -497,7 +506,7 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
 }
 
 int main () {
-  #ifdef _WIN32 //initialize windows socket
+  #if defined(_WIN32) && !defined(WASM_BUILD) //initialize windows socket
     WSADATA wsa;
       if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         fprintf(stderr, "WSAStartup failed\n");
@@ -541,15 +550,17 @@ int main () {
     perror("socket failed");
     exit(EXIT_FAILURE);
   }
-#ifdef _WIN32
+#ifndef WASM_BUILD
+  #ifdef _WIN32
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR,
       (const char*)&opt, sizeof(opt)) < 0) {
-#else
+  #else
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-#endif    
+  #endif    
     perror("socket options failed");
     exit(EXIT_FAILURE);
   }
+#endif
 
   // Bind socket to IP/port
   server_addr.sin_family = AF_INET;
@@ -572,15 +583,17 @@ int main () {
 
   // Make the socket non-blocking
   // This is necessary to not starve the idle task during slow connections
-  #ifdef _WIN32
-    u_long mode = 1;  // 1 = non-blocking
-    if (ioctlsocket(server_fd, FIONBIO, &mode) != 0) {
-      fprintf(stderr, "Failed to set non-blocking mode\n");
-      exit(EXIT_FAILURE);
-    }
-  #else
-  int flags = fcntl(server_fd, F_GETFL, 0);
-  fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
+  #ifndef WASM_BUILD
+    #ifdef _WIN32
+      u_long mode = 1;  // 1 = non-blocking
+      if (ioctlsocket(server_fd, FIONBIO, &mode) != 0) {
+        fprintf(stderr, "Failed to set non-blocking mode\n");
+        exit(EXIT_FAILURE);
+      }
+    #else
+    int flags = fcntl(server_fd, F_GETFL, 0);
+    fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
+    #endif
   #endif
 
   // Track time of last server tick (in microseconds)
@@ -721,7 +734,7 @@ int main () {
 
   close(server_fd);
  
-  #ifdef _WIN32 //cleanup windows socket
+  #if defined(_WIN32) && !defined(WASM_BUILD) //cleanup windows socket
     WSACleanup();
   #endif
 
@@ -776,6 +789,196 @@ void wifi_init () {
 void app_main () {
   esp_timer_early_init();
   wifi_init();
+}
+
+#endif
+
+#ifdef PICO_BUILD
+
+// Task yield for Pico (let background tasks run)
+void task_yield() {
+  cyw43_arch_poll();
+  sleep_ms(1);
+}
+
+// Pico W initialization and main entry point
+int main() {
+  // Initialize stdio for USB output
+  stdio_init_all();
+  
+  printf("Bareiron starting on Raspberry Pi Pico W...\n");
+  
+  // Initialize WiFi chip
+  if (cyw43_arch_init()) {
+    printf("Failed to initialize WiFi chip\n");
+    return 1;
+  }
+  
+  // Enable station mode
+  cyw43_arch_enable_sta_mode();
+  
+  printf("Connecting to WiFi SSID: %s\n", WIFI_SSID);
+  
+  // Connect to WiFi
+  int wifi_result = cyw43_arch_wifi_connect_timeout_ms(
+    WIFI_SSID, 
+    WIFI_PASS, 
+    CYW43_AUTH_WPA2_AES_PSK,
+    30000  // 30 second timeout
+  );
+  
+  if (wifi_result != 0) {
+    printf("Failed to connect to WiFi (error %d)\n", wifi_result);
+    return 1;
+  }
+  
+  printf("WiFi connected successfully!\n");
+  
+  // Get and display IP address
+  extern struct netif *netif_default;
+  if (netif_default) {
+    printf("IP Address: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
+  }
+  
+  // Hash the seeds
+  world_seed = splitmix64(INITIAL_WORLD_SEED);
+  printf("World seed (hashed): ");
+  for (int i = 3; i >= 0; i--) printf("%X", (unsigned int)((world_seed >> (8 * i)) & 255));
+  
+  rng_seed = splitmix64(INITIAL_RNG_SEED);
+  printf("\nRNG seed (hashed): ");
+  for (int i = 3; i >= 0; i--) printf("%X", (unsigned int)((rng_seed >> (8 * i)) & 255));
+  printf("\n\n");
+  
+  // Initialize block changes as unallocated
+  for (int i = 0; i < MAX_BLOCK_CHANGES; i++) {
+    block_changes[i].block = 0xFF;
+  }
+  
+  // Initialize player data
+  for (int i = 0; i < MAX_PLAYERS; i++) {
+    player_data[i].client_fd = -1;
+  }
+  
+  // Note: Pico W doesn't support file system by default
+  // Serialization to flash would require additional setup
+  printf("Note: World persistence not enabled for Pico W\n");
+  
+  printf("Starting Minecraft server...\n");
+  
+  // Call the existing server main loop
+  // We need to adapt the main() function to work here
+  // For now, create a simplified server socket setup
+  
+  int clients[MAX_PLAYERS];
+  for (int i = 0; i < MAX_PLAYERS; i++) {
+    clients[i] = -1;
+    client_states[i * 2] = -1;
+  }
+  
+  // Create server socket
+  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (server_fd < 0) {
+    printf("Failed to create socket\n");
+    return 1;
+  }
+  
+  // Bind to port
+  struct sockaddr_in server_addr;
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = INADDR_ANY;
+  server_addr.sin_port = htons(PORT);
+  
+  if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    printf("Failed to bind socket\n");
+    return 1;
+  }
+  
+  // Listen for connections
+  if (listen(server_fd, 5) < 0) {
+    printf("Failed to listen\n");
+    return 1;
+  }
+  
+  printf("Server listening on port %d...\n", PORT);
+  
+  // Set non-blocking mode
+  int flags = 1;
+  lwip_ioctl(server_fd, FIONBIO, &flags);
+  
+  // Track last tick time
+  int64_t last_tick_time = get_program_time();
+  int client_index = 0;
+  
+  // Main server loop (similar to regular main())
+  while (true) {
+    task_yield();
+    
+    // Try to accept new connections
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+      if (clients[i] != -1) continue;
+      
+      struct sockaddr_in client_addr;
+      socklen_t addr_len = sizeof(client_addr);
+      clients[i] = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
+      
+      if (clients[i] >= 0) {
+        printf("New client, fd: %d\n", clients[i]);
+        // Set non-blocking
+        int flags = 1;
+        lwip_ioctl(clients[i], FIONBIO, &flags);
+        client_count++;
+      }
+      break;
+    }
+    
+    // Handle periodic ticks
+    int64_t time_since_last_tick = get_program_time() - last_tick_time;
+    if (time_since_last_tick > TIME_BETWEEN_TICKS) {
+      handleServerTick(time_since_last_tick);
+      last_tick_time = get_program_time();
+    }
+    
+    // Process client packets (simplified - full implementation would match main())
+    client_index++;
+    if (client_index >= MAX_PLAYERS) client_index = 0;
+    if (clients[client_index] == -1) continue;
+    
+    int client_fd = clients[client_index];
+    
+    // Check for data
+    recv_count = recv(client_fd, recv_buffer, 2, MSG_PEEK);
+    if (recv_count < 2) {
+      if (recv_count == 0 || (recv_count < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+        disconnectClient(&clients[client_index], 1);
+      }
+      continue;
+    }
+    
+    // Read and handle packet (same as main())
+    int length = readVarInt(client_fd);
+    if (length == VARNUM_ERROR) {
+      disconnectClient(&clients[client_index], 2);
+      continue;
+    }
+    
+    int packet_id = readVarInt(client_fd);
+    if (packet_id == VARNUM_ERROR) {
+      disconnectClient(&clients[client_index], 3);
+      continue;
+    }
+    
+    int state = getClientState(client_fd);
+    handlePacket(client_fd, length - sizeVarInt(packet_id), packet_id, state);
+    
+    if (recv_count == 0 || (recv_count == -1 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+      disconnectClient(&clients[client_index], 4);
+    }
+  }
+  
+  // Cleanup (never reached in normal operation)
+  cyw43_arch_deinit();
+  return 0;
 }
 
 #endif
