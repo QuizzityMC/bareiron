@@ -159,6 +159,10 @@ EM_BOOL wasm_websocket_message_callback(int eventType, const EmscriptenWebSocket
     if (to_copy > 0) {
       memcpy(sock->recv_buffer + sock->recv_buffer_len, e->data, to_copy);
       sock->recv_buffer_len += to_copy;
+    } else if (e->numBytes > 0) {
+      // Buffer full, data is being dropped
+      printf("Warning: Receive buffer full on fd %d, dropping %d bytes\n", 
+             sockfd, (int)(e->numBytes - to_copy));
     }
   }
   return EM_TRUE;
@@ -202,6 +206,15 @@ int wasm_add_client_connection(EMSCRIPTEN_WEBSOCKET_T ws) {
   printf("Added WebSocket client connection, fd: %d\n", sockfd);
   
   return sockfd;
+}
+
+// Called from JavaScript when a WebSocket connection is closed
+EMSCRIPTEN_KEEPALIVE
+void wasm_remove_client_connection(int sockfd) {
+  if (sockfd >= 0 && sockfd < 32) {
+    printf("Removing WebSocket client connection, fd: %d\n", sockfd);
+    wasm_close(sockfd);
+  }
 }
 
 #endif // WASM_BUILD

@@ -35,7 +35,7 @@ emcc src/*.c \
   -s ASYNCIFY=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
-  -s EXPORTED_FUNCTIONS='["_main","_malloc","_free"]' \
+  -s EXPORTED_FUNCTIONS='["_main","_malloc","_free","_wasm_add_client_connection","_wasm_remove_client_connection"]' \
   -s ENVIRONMENT='web,worker' \
   -s PROXY_TO_PTHREAD=0 \
   -s MODULARIZE=1 \
